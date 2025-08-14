@@ -35,8 +35,7 @@ def laad_excel(bestandsnaam):
         return df
 
     except Exception as e:
-        print(f"Fout bij het laden van het Excel-bestand: {e}")
-        sys.exit(1)
+        raise ValueError(f"Fout bij het laden van het Excel-bestand: {e}")
 
 def bereken_rantsoen(df, naam_rantsoen):
     """
@@ -111,8 +110,23 @@ def bereken_rantsoen(df, naam_rantsoen):
 
         
     except Exception as e:
-        print(f"Fout bij het berekenen van het rantsoen: {e}")
-        sys.exit(1)
+        raise ValueError(f"Fout bij het berekenen van het rantsoen: {e}")
+
+def optimaliseer_rantsoen(data_bestandsnaam, naam_rantsoen):
+    """
+    Hoofdfunctie om het rantsoen te optimaliseren.
+    Laadt de gegevens uit het Excel-bestand en berekent het rantsoen.
+
+    Args:
+        data_bestandsnaam (str): De naam (en path vanaf de working directory) van het Excel-bestand met de voedingsmiddelen en streefwaarden.
+        naam_rantsoen (str): De naam die gebruikt wordt voor het resultaatsbestand.
+    """
+    try:
+        df = laad_excel(data_bestandsnaam)
+        bereken_rantsoen(df, naam_rantsoen)
+    except ValueError as e:
+        raise ValueError(f"{e}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -120,6 +134,13 @@ if __name__ == "__main__":
         sys.exit(1)
     bestandsnaam = sys.argv[1]
     naam_rantsoen = sys.argv[2]
+
+    try:
+        optimaliseer_rantsoen(bestandsnaam, naam_rantsoen)
     
-    df = laad_excel(bestandsnaam)
-    bereken_rantsoen(df, naam_rantsoen)
+    except ValueError as e:
+        print(f"{e}")
+        sys.exit(1)
+    
+    print(f"Rantsoen succesvol berekend en opgeslagen in 'rantsoen_{naam_rantsoen}.xlsx'.")
+    sys.exit(0)
