@@ -58,7 +58,10 @@ def bereken_rantsoen(df, naam_rantsoen):
         # Bereid de lineaire programmering voor
         c = prijzen     # Kosten per kg DS
         A_ub = np.vstack([voerwaardes.T, -voerwaardes.T])
+        #A_ub = np.vstack([ -voerwaardes.T])
+
         b_ub = np.concatenate([streefwaarden_boven, -streefwaarden_onder])
+        #b_ub = np.concatenate([-streefwaarden_onder])
         bounds = [(0, None)] * len(prijzen)  # Geen negatieve hoeveelheden
 
         # Behandel de nan, inf en -inf waarden zodat ze correct worden geïnterpreteerd
@@ -69,16 +72,42 @@ def bereken_rantsoen(df, naam_rantsoen):
         # Los het lineaire programmeringsprobleem op
         from scipy.optimize import linprog
         result = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
-    
-        print(result)
-        if not result.succes:
+        if not result.success:
             print("Geen mogelijk rantsoen gevonden. Probeer de streefwaarden of de beschikbare voedingsmiddelen aan te passen.")
-            print("Foutmelding:", result.message)
+            raise ValueError(f"{result.message}")
+        
+        # Resultaat verwerken
+        rantsoen_1kg_DS = result.x
+        rantsoen_prijs = round(result.fun,2)
+        rantsoen_per_19kg_DS = rantsoen_1kg_DS * 19
+        rantsoen_waardes = [round(i,2) for i in (streefwaarden_onder + result.ineqlin.residual[streefwaarden_onder.shape[0]:])]
+        rantsoen_kg_normaal = [round(i,2) for i in rantsoen_per_19kg_DS/ds_percentages]
+        rantsoen_per_19kg_DS = [round(i, 2) for i in rantsoen_per_19kg_DS]
 
-            sys.exit(1)
+        # Maak een DataFrame voor het rantsoen
+        s1 = pd.DataFrame({
+            'Voermiddel': df.iloc[4:, 1].values, 
+            'Rantsoen per koe (niet DS) [kg]:' : rantsoen_kg_normaal,
+            'Hoeveelheid 19kg totaal [kg DS]': rantsoen_per_19kg_DS,
+            'Prijs per ton DS': prijzen
+            }).transpose()
+     
+        s2 = pd.Series({'Totale prijs [EUR/ ton DS]': rantsoen_prijs})
+
+        s3 = pd.DataFrame({
+            'Streefwaarde Type:': df.iloc[0, 5:].values,
+            'Streefwaarde Boven:': streefwaarden_boven,
+            'Rantsoen Waarde': rantsoen_waardes,
+            'Streefwaarde Onder:': streefwaarden_onder,
+            }).transpose()
+
+        s_empty = pd.Series({'': ''})
+
+        rantsoen_df = pd.concat([s1,s_empty, s2, s_empty, s3], axis=0)
         
-        
-        
+        # Sla het resultaat op in een Excel-bestand
+        output_bestandsnaam = f'rantsoen_{naam_rantsoen}.xlsx'
+        rantsoen_df.to_excel(output_bestandsnaam, index=True, header=False)
 
         
     except Exception as e:
